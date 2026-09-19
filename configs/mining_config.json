@@ -2,6 +2,8 @@
   "max_words": 200,
   "min_authors": 2,
   "target_authors": 1,
+  "min_message_words": 5,
+  "skip_bots": true,
   "output_dir": "data/raw_threads",
   "database_path": "data/dialogues.db",
   "fetch": {
