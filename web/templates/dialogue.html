@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Тред {{ d.seed_id }} · dialogues-miner{% endblock %}
+{% block content %}
+<h2>Тред {{ d.seed_id }} — {{ d.sender }}</h2>
+<p class="meta">
+    Авторов: {{ d.authors_count }} ·
+    Слов: {{ d.words_count }} ·
+    Целевых слов: {{ d.target_count }} ·
+    Автор согласия: {{ d.target_author }}
+</p>
+
+<div class="messages">
+    {% for m in d.messages %}
+    <div class="msg {% if m.is_target %}msg-target{% endif %}">
+        <div class="msg-head">
+            <span class="author">{{ m.author_id or '—' }}</span>
+            <span class="time">{{ m.timestamp or '' }}</span>
+            {% if m.is_target %}<span class="badge">целевое</span>{% endif %}
+        </div>
+        <div class="msg-body">{{ m.message }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<p><a href="/dialogues">← Все треды</a></p>
+{% endblock %}
