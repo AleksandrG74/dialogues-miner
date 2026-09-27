@@ -193,7 +193,7 @@ async def fetch_channel(
     last_id: Optional[int] = None
 
     try:
-        async for msg in client.iter_messages(entity, limit=limit, offset_date=cutoff):
+        async for msg in client.iter_messages(entity, limit=limit):
             if msg.date and msg.date < cutoff:
                 break
             if not msg.message or not msg.message.strip():

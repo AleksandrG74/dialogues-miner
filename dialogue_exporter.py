@@ -35,7 +35,7 @@ def dialogue_to_dict(d: Dialogue, target_words: set) -> dict:
         "messages": [
             {
                 "id": m.id,
-                "timestamp": m.timestamp.isoformat() if m.timestamp else None,
+                "timestamp": m.timestamp if m.timestamp else None,
                 "author_id": m.author_id,
                 "message": m.message,
                 "is_target": (m.message or "").strip().lower() in target_words,
