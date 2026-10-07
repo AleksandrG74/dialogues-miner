@@ -62,14 +62,59 @@ def load_sources() -> list[dict]:
     return [s for s in data["sources"] if s.get("enabled", True)]
 
 
-def _extract_author_id(msg) -> Optional[str]:
-    """Возвращает ID автора сообщения или None."""
+def _extract_author(msg):
+    """Возвращает (author_id, username, first_name, last_name)."""
+    author_id = None
+    username = None
+    first_name = None
+    last_name = None
     try:
         if msg.from_id and hasattr(msg.from_id, "user_id"):
-            return str(msg.from_id.user_id)
+            author_id = str(msg.from_id.user_id)
+        sender = getattr(msg, "sender", None)
+        if sender is not None:
+            if getattr(sender, "username", None):
+                username = sender.username
+            if getattr(sender, "first_name", None):
+                first_name = sender.first_name
+            if getattr(sender, "last_name", None):
+                last_name = sender.last_name
     except Exception:
         pass
-    return None
+    return author_id, username, first_name, last_name
+
+
+def _extract_fwd_from(msg):
+    """Возвращает (fwd_channel_id, fwd_channel_username, fwd_message_id, fwd_message_url)."""
+    fwd_channel_id = None
+    fwd_channel_username = None
+    fwd_message_id = None
+    fwd_message_url = None
+    try:
+        fwd = getattr(msg, "fwd_from", None)
+        if fwd and getattr(fwd, "from_id", None):
+            from_id = fwd.from_id
+            if hasattr(from_id, "channel_id"):
+                fwd_channel_id = str(from_id.channel_id)
+                fwd_message_id = getattr(fwd, "channel_post", None)
+    except Exception:
+        pass
+    return fwd_channel_id, fwd_channel_username, fwd_message_id, fwd_message_url
+
+
+def _extract_source(msg, sender_name):
+    """Возвращает (source_channel_id, source_channel_username, source_message_id, source_message_url)."""
+    try:
+        source_channel_username = sender_name.lstrip("@") if sender_name else None
+        source_message_id = msg.id
+        source_message_url = (
+            f"https://t.me/{source_channel_username}/{source_message_id}"
+            if source_channel_username and source_message_id
+            else None
+        )
+        return None, source_channel_username, source_message_id, source_message_url
+    except Exception:
+        return None, None, None, None
 
 
 def _extract_reply_to(msg) -> Optional[int]:
@@ -137,8 +182,12 @@ def save_batch(con: sqlite3.Connection, batch: list[tuple]) -> int:
     con.executemany(
         """
         INSERT OR IGNORE INTO dialogs
-        (id, sender, message, timestamp, author_id, reply_to_msg_id)
-        VALUES (?, ?, ?, ?, ?, ?)
+        (id, sender, message, timestamp,
+         author_id, author_username, author_first_name, author_last_name,
+         reply_to_msg_id,
+         source_channel_id, source_channel_username, source_message_id, source_message_url,
+         fwd_from_channel_id, fwd_from_channel_username, fwd_from_message_id, fwd_from_message_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         batch,
     )
@@ -206,13 +255,18 @@ async def fetch_channel(
                 skipped += 1
                 continue
 
+            author_id, author_username, author_first_name, author_last_name = _extract_author(msg)
+            reply_to_msg_id = _extract_reply_to(msg)
+            source_channel_id, source_channel_username, source_message_id, source_message_url = _extract_source(msg, name)
+            fwd_channel_id, fwd_channel_username, fwd_message_id, fwd_message_url = _extract_fwd_from(msg)
+
             row = (
-                msg.id,
-                name,
-                msg.message[:2000],
+                msg.id, name, msg.message[:2000],
                 msg.date.isoformat() if msg.date else None,
-                _extract_author_id(msg),
-                _extract_reply_to(msg),
+                author_id, author_username, author_first_name, author_last_name,
+                reply_to_msg_id,
+                source_channel_id, source_channel_username, source_message_id, source_message_url,
+                fwd_channel_id, fwd_channel_username, fwd_message_id, fwd_message_url,
             )
             batch.append(row)
             last_id = msg.id

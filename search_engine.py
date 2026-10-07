@@ -46,9 +46,20 @@ class Message:
     id: int
     sender: str
     author_id: str
+    author_username: Optional[str]
+    author_first_name: Optional[str]
+    author_last_name: Optional[str]
     reply_to_msg_id: Optional[int]
     timestamp: datetime
     message: str
+    source_channel_id: Optional[str]
+    source_channel_username: Optional[str]
+    source_message_id: Optional[int]
+    source_message_url: Optional[str]
+    fwd_from_channel_id: Optional[str]
+    fwd_from_channel_username: Optional[str]
+    fwd_from_message_id: Optional[int]
+    fwd_from_message_url: Optional[str]
 
 
 @dataclass
@@ -56,6 +67,8 @@ class Dialogue:
     seed_id: int
     sender: str
     target_author: str
+    target_author_username: Optional[str]
+    source_message_url: Optional[str]
     authors: set
     messages: list
     words_count: int
@@ -81,7 +94,10 @@ class SearchEngine:
             return []
         placeholders = ",".join("?" * len(self.target_words))
         sql = f"""
-            SELECT id, sender, author_id, reply_to_msg_id, timestamp, message
+            SELECT id, sender, author_id, author_username, author_first_name, author_last_name,
+                   reply_to_msg_id, timestamp, message,
+                   source_channel_id, source_channel_username, source_message_id, source_message_url,
+                   fwd_from_channel_id, fwd_from_channel_username, fwd_from_message_id, fwd_from_message_url
             FROM dialogs
             WHERE LOWER(TRIM(message)) IN ({placeholders})
               AND author_id IS NOT NULL
@@ -92,7 +108,10 @@ class SearchEngine:
 
     def _load_message(self, con, msg_id):
         row = con.execute(
-            "SELECT id, sender, author_id, reply_to_msg_id, timestamp, message "
+            "SELECT id, sender, author_id, author_username, author_first_name, author_last_name, "
+            "reply_to_msg_id, timestamp, message, "
+            "source_channel_id, source_channel_username, source_message_id, source_message_url, "
+            "fwd_from_channel_id, fwd_from_channel_username, fwd_from_message_id, fwd_from_message_url "
             "FROM dialogs WHERE id = ?",
             (msg_id,),
         ).fetchone()
@@ -100,7 +119,10 @@ class SearchEngine:
 
     def _load_replies(self, con, msg_id, sender):
         rows = con.execute(
-            "SELECT id, sender, author_id, reply_to_msg_id, timestamp, message "
+            "SELECT id, sender, author_id, author_username, author_first_name, author_last_name, "
+            "reply_to_msg_id, timestamp, message, "
+            "source_channel_id, source_channel_username, source_message_id, source_message_url, "
+            "fwd_from_channel_id, fwd_from_channel_username, fwd_from_message_id, fwd_from_message_url "
             "FROM dialogs WHERE reply_to_msg_id = ? AND sender = ?",
             (msg_id, sender),
         ).fetchall()
@@ -157,10 +179,19 @@ class SearchEngine:
         if seed.id not in {m.id for m in thread}:
             return None
 
+        target_author = next(iter(target_authors))
+        target_author_username = next(
+            (m.author_username for m in thread if m.author_id == target_author),
+            None,
+        )
+        source_message_url = seed.source_message_url or seed.fwd_from_message_url
+
         return Dialogue(
             seed_id=seed.id,
             sender=seed.sender,
-            target_author=next(iter(target_authors)),
+            target_author=target_author,
+            target_author_username=target_author_username,
+            source_message_url=source_message_url,
             authors=authors,
             messages=thread,
             words_count=wc,

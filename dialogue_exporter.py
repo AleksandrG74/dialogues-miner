@@ -28,6 +28,8 @@ def dialogue_to_dict(d: Dialogue, target_words: set) -> dict:
         "seed_id": d.seed_id,
         "sender": d.sender,
         "target_author": d.target_author,
+        "target_author_username": d.target_author_username,
+        "source_message_url": d.source_message_url,
         "authors": sorted(d.authors),
         "authors_count": len(d.authors),
         "words_count": d.words_count,
@@ -37,9 +39,15 @@ def dialogue_to_dict(d: Dialogue, target_words: set) -> dict:
                 "id": m.id,
                 "timestamp": m.timestamp if m.timestamp else None,
                 "author_id": m.author_id,
+                "author_username": m.author_username,
+                "author_first_name": m.author_first_name,
+                "author_last_name": m.author_last_name,
                 "message": m.message,
                 "is_target": (m.message or "").strip().lower() in target_words,
                 "reply_to_msg_id": m.reply_to_msg_id,
+                "source_message_url": m.source_message_url,
+                "fwd_from_channel_username": m.fwd_from_channel_username,
+                "fwd_from_message_url": m.fwd_from_message_url,
             }
             for m in d.messages
         ],
@@ -79,6 +87,8 @@ def export_dialogues(
             "words_count": d.words_count,
             "target_count": d.target_count,
             "target_author": d.target_author,
+            "target_author_username": d.target_author_username,
+            "source_message_url": d.source_message_url,
         })
         saved += 1
 
